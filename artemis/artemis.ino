@@ -7,7 +7,13 @@ const int MAX_MSG_SIZE = 200;
 byte artemisMAC[6] = {0x00, 0xE0, 0x22, 0xFE, 0xDA, 0xC9};
 byte esp32MAC[6] = {0x00, 0xE0, 0x22, 0xFE, 0xDA, 0xCA};
 
-char recvBuffer[MAX_MSG_SIZE];
+byte xmitPacket[MAX_MSG_SIZE];
+byte recvPacket[MAX_MSG_SIZE];
+
+static void rxCallback(byte * data, int dataLen, byte * senderMac)
+{
+  memcpy(recvPacket, data, dataLen);
+}
 
 void setup() {
   memset(recvBuffer, 0, sizeof(recvBuffer));
@@ -36,15 +42,9 @@ void loop() {
   if(adin1110.getLinkStatus())
   {      
       Serial.print("Sending:\t");
-      Serial.println(outputString[msg]); //This is ok since we know they are all null terminated strings
+      Serial.println(); //This is ok since we know they are all null terminated strings
       
-      adin1110.sendData((byte *)outputString[msg], sizeof(outputString[msg]), destinationMAC);
-      
-      msg++;
-      if(msg >= NUM_MSGS)
-      {
-        msg = 0;
-      }
+      adin1110.sendData((byte *)xmitPacket, sizeof(xmitPacket), destinationMAC);
   }
   else
   {
