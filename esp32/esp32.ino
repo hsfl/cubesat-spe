@@ -1,6 +1,11 @@
 #include "SparkFun_SinglePairEthernet.h"
+// Adafruit LSM6DS
+// Adafruit BusIO
+// Adafruit Unified Sensor
+#include <Adafruit_LSM6DSOX.h>
 
 SinglePairEthernet adin1110;
+Adafruit_LSM6DSOX imu;
 
 const int MAX_MSG_SIZE = 200;
 
@@ -35,6 +40,14 @@ void setup() {
   /* Wait for link to be established */
   Serial.println("Device Configured, waiting for connection...");
   while (adin1110.getLinkStatus() != true);
+
+  Wire.begin();
+  
+  while (imu.beginI2C() == false) //Begin communication over I2C
+  {
+    Serial.println("Waiting for IMU to initialize...");
+    delay(1000); //Freeze
+  }
 }
 
 void loop() {
