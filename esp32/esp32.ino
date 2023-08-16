@@ -4,20 +4,32 @@
 // Adafruit Unified Sensor
 #include <Adafruit_LSM6DSOX.h>
 
+#define REQUEST 0x0A;
+
 SinglePairEthernet adin1110;
 Adafruit_LSM6DSOX imu;
+
+sensors_event_t accel;
+sensors_event_t gyro;
+sensors_event_t temp;
 
 const int MAX_MSG_SIZE = 200;
 
 byte artemisMAC[6] = {0x00, 0xE0, 0x22, 0xFE, 0xDA, 0xC9};
 byte esp32MAC[6] = {0x00, 0xE0, 0x22, 0xFE, 0xDA, 0xCA};
 
+bool xmitFlag = false;
+bool recvFlag = false;
+
 byte xmitPacket[MAX_MSG_SIZE];
 byte recvPacket[MAX_MSG_SIZE];
 
 static void rxCallback(byte * data, int dataLen, byte * senderMac)
 {
-  memcpy(recvPacket, data, dataLen);
+  if(data[0] == REQUEST)
+  {
+    recvFlag = true;
+  }
 }
 
 void setup() {
@@ -51,16 +63,20 @@ void setup() {
 }
 
 void loop() {
-  /* If we are still connected, send a message */
-  if(adin1110.getLinkStatus())
-  {      
-      Serial.print("Sending:\t");
-      Serial.println(); //This is ok since we know they are all null terminated strings
-      
-      adin1110.sendData((byte *)xmitPacket, sizeof(xmitPacket), destinationMAC);
-  }
-  else
+  if(recvFlag)
   {
-      Serial.println("Waiting for link to resume sending");
+    if(adin1110.getLinkStatus())
+    {      
+      imu.getEvent(&accel, &gyro, &temp);
+      memcpy(xmitPacket, accel, sizeof(accel));
+      memcpy(xmitPacket + sizeof(accel), gyro, sizeof(gyro));
+      memcpy(xmitPacket + sizeof(accel) + sizeof(gyro), temp, sizeof(temp));
+      adin1110.sendData((byte *)xmitPacket, sizeof(xmitPacket), destinationMAC);
+      recvFlag = false;
+    }
+    else
+    {
+        Serial.println("Waiting for link to resume sending");
+    }
   }
 }
