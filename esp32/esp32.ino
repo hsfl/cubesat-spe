@@ -5,16 +5,23 @@
 // Adafruit BusIO
 // Adafruit Unified Sensor
 #include <Adafruit_LSM6DSOX.h>
+// Adafruit LIS3MDL
+#include <Adafruit_LIS3MDL.h>
 
 // The Single-Pair Ethernet object.
-SinglePairEthernet adin1110;
+SinglePairEthernet  adin1110;
 // The IMU object.
-Adafruit_LSM6DSOX imu;
+Adafruit_LSM6DSOX   imu;
+// The magnetometer object.
+Adafruit_LIS3MDL    magnetometer;
 
 // The objects used to hold IMU sensor readings.
 sensors_event_t accel;
 sensors_event_t gyro;
 sensors_event_t temp;
+
+// The object used to hold magnetometer readings.
+sensors_event_t magnet; 
 
 // The single-byte payload indicating a sensor reading request from the OBC.
 byte request_byte = 0x0A;
@@ -70,6 +77,10 @@ void setup() {
   // Wait for IMU to be initialized.
   Serial.println("Waiting for IMU to initialize...");
   while (!imu.begin_I2C());
+
+  // Wait for IMU to be initialized.
+  Serial.println("Waiting for magnetometer to initialize...");
+  while (!magnetometer.begin_I2C());
 }
 
 void loop() {
@@ -80,13 +91,16 @@ void loop() {
     if(adin1110.getLinkStatus())
     {
       Serial.println("Got sensor data request from OBC board. Replying...");
-      // poll the IMU for its sensor readings.
+      // poll the IMU and magnetometer for their sensor readings.
       imu.getEvent(&accel, &gyro, &temp);
+      magnetometer.getEvent(&magnet);
+      // Clear the outgoing packet.
       memset(xmitPacket, 0, sizeof(xmitPacket));
-      // Copy those readings into the packet.
-      memcpy(xmitPacket,                                &accel, sizeof(accel));
-      memcpy(xmitPacket + sizeof(accel),                &gyro,  sizeof(gyro));
-      memcpy(xmitPacket + sizeof(accel) + sizeof(gyro), &temp,  sizeof(temp));
+      // Copy the sensor readings into the packet's payload.
+      memcpy(xmitPacket,                                                &accel,   sizeof(accel));
+      memcpy(xmitPacket + sizeof(accel),                                &gyro,    sizeof(gyro));
+      memcpy(xmitPacket + sizeof(accel) + sizeof(gyro),                 &temp,    sizeof(temp));
+      memcpy(xmitPacket + sizeof(accel) + sizeof(gyro) + sizeof(temp),  &magnet,  sizeof(magnet));
       // Send the packet to the OBC board.
       adin1110.sendData((byte *)xmitPacket, sizeof(xmitPacket), artemisMAC);
       // Reset the sensor data request flag to await another request.

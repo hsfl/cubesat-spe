@@ -12,6 +12,9 @@ sensors_event_t accel;
 sensors_event_t gyro;
 sensors_event_t temp;
 
+// The object used to hold magnetometer readings.
+sensors_event_t magnet; 
+
 // The time since the last sensor reading request.
 unsigned long last_request;
 // The single-byte payload indicating a sensor reading request from the OBC.
@@ -85,9 +88,10 @@ void loop() {
   if(recvFlag)
   {
     // Fill the local sensor variables with the packet's payload data.
-    memcpy(&accel,  recvPacket,                                 sizeof(accel));
-    memcpy(&gyro,   recvPacket + sizeof(accel),                 sizeof(gyro));
-    memcpy(&temp,   recvPacket + sizeof(accel) + sizeof(gyro),  sizeof(temp));
+    memcpy(&accel,    recvPacket,                                               sizeof(accel));
+    memcpy(&gyro,     recvPacket + sizeof(accel),                               sizeof(gyro));
+    memcpy(&temp,     recvPacket + sizeof(accel) + sizeof(gyro),                sizeof(temp));
+    memcpy(&magnet,   recvPacket + sizeof(accel) + sizeof(gyro) + sizeof(temp), sizeof(magnet));
 
     // Print the results.
     Serial.print("\t\tTemperature ");
@@ -109,6 +113,14 @@ void loop() {
     Serial.print(" \tZ: ");
     Serial.print(gyro.gyro.z);
     Serial.println(" radians/s ");
+    
+    Serial.print("\t\tMagnet X: "); 
+    Serial.print(magnet.magnetic.x);
+    Serial.print(" \tY: "); 
+    Serial.print(magnet.magnetic.y); 
+    Serial.print(" \tZ: "); 
+    Serial.print(magnet.magnetic.z); 
+    Serial.println(" uTesla ");
     Serial.println();
 
     // Reset the received packet flag to print the next set of readings.
