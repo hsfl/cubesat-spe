@@ -1,7 +1,9 @@
+// The following libraries are used:
+// SparkFun ADIN1110 Arduino Library
 #include "SparkFun_SinglePairEthernet.h"
 // Adafruit Unified Sensor
 
-#define REQUEST 0x0A;
+#define REQUEST 0x0A
 
 SinglePairEthernet adin1110;
 
