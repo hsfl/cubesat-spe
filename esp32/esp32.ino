@@ -1,27 +1,37 @@
+// Choose which sensors are connected to the sensor board.
+#define SPARKFUN    // SparkFun sensors.
+//#define ADAFRUIT  // Adafruit sensors.
+
 // The following libraries are used:
-// SparkFun ADIN1110 Arduino Library
-#include "SparkFun_SinglePairEthernet.h"
-// Adafruit LSM6DS
-// Adafruit BusIO
-// Adafruit Unified Sensor
-#include <Adafruit_LSM6DSOX.h>
-// Adafruit LIS3MDL
-#include <Adafruit_LIS3MDL.h>
+#include "SparkFun_SinglePairEthernet.h"        // SparkFun ADIN1110 Arduino Library
+#ifdef ADAFRUIT
+#include <Adafruit_LSM6DSOX.h>                  // Adafruit LSM6DS
+#include <Adafruit_LIS3MDL.h>                   // Adafruit LIS3MDL
+                                                // Adafruit BusIO
+                                                // Adafruit Unified Sensor
+#elif defined(SPARKFUN)
+#include <SparkFunLSM6DSO.h>                    // SparkFun Qwiic 6Dof - LSM6DS0
+#include <SparkFun_MMC5983MA_Arduino_Library.h> // SparkFun MMC5983MA Magnetometer Arduino Library
+#endif
 
-// The Single-Pair Ethernet object.
-SinglePairEthernet  adin1110;
-// The IMU object.
-Adafruit_LSM6DSOX   imu;
-// The magnetometer object.
-Adafruit_LIS3MDL    magnetometer;
+SinglePairEthernet  adin1110;       // The Single-Pair Ethernet object.
+#ifdef ADAFRUIT
+Adafruit_LSM6DSOX   imu;            // The Adafruit IMU object.
+Adafruit_LIS3MDL    magnetometer;   // The Adafruit magnetometer object.
 
-// The objects used to hold IMU sensor readings.
-sensors_event_t accel;
+sensors_event_t accel;              // The objects used to hold IMU sensor readings.
 sensors_event_t gyro;
 sensors_event_t temp;
+sensors_event_t magnet;             // The object used to hold magnetometer readings.
+#elif defined(SPARKFUN)
+LSM6DSO             imu;            // The SparkFun IMU object.
+SFE_MMC5983MA       magnetometer;   // The SparkFun magnetometer object.
 
-// The object used to hold magnetometer readings.
-sensors_event_t magnet; 
+float               accel[3];       // An array of IMU readings. Stores X, Y, Z values in that order.
+float               gyro[3];        
+float               temp;
+uint32_t            magnet[3];      // An array of magnetometer readings. Stores X, Y, Z values in that order.
+#endif
 
 // The single-byte payload indicating a sensor reading request from the OBC.
 byte request_byte = 0x0A;
@@ -42,6 +52,7 @@ byte xmitPacket[MAX_MSG_SIZE];
 // if the function takes too long.
 static void rxCallback(byte * data, int dataLen, byte * senderMac)
 {
+  Serial.println("a");
   // Check the first byte of the packet for a sensor readings request.
   if(data[0] == request_byte)
   {
@@ -76,24 +87,48 @@ void setup() {
 
   // Wait for IMU to be initialized.
   Serial.println("Waiting for IMU to initialize...");
+  #ifdef ADAFRUIT
   while (!imu.begin_I2C());
+  #elif defined(SPARKFUN)
+  while (!imu.begin());
+  imu.initialize(BASIC_SETTINGS);
+  #endif
 
-  // Wait for IMU to be initialized.
+  // Wait for magnetometer to be initialized.
   Serial.println("Waiting for magnetometer to initialize...");
+  #ifdef ADAFRUIT
   while (!magnetometer.begin_I2C());
+  #elif defined(SPARKFUN)
+  while (!magnetometer.begin());
+  magnetometer.softReset();
+  #endif
+
+  Serial.println("Setup Complete!");
 }
 
 void loop() {
   // If sensor readings are requested,
   if(requestFlag)
   {
+    Serial.println("Got sensor data request");
     // and there is an active link to the OBC board,
     if(adin1110.getLinkStatus())
     {
       Serial.println("Got sensor data request from OBC board. Replying...");
       // poll the IMU and magnetometer for their sensor readings.
+      #ifdef ADAFRUIT
       imu.getEvent(&accel, &gyro, &temp);
       magnetometer.getEvent(&magnet);
+      #elif defined(SPARKFUN)
+      accel[0]  = imu.readFloatAccelX();
+      accel[1]  = imu.readFloatAccelY();
+      accel[2]  = imu.readFloatAccelZ();
+      gyro[0]   = imu.readFloatGyroX();
+      gyro[1]   = imu.readFloatGyroY();
+      gyro[2]   = imu.readFloatGyroZ();
+      temp      = imu.readTempC();
+      magnetometer.getMeasurementXYZ(&magnet[0], &magnet[1], &magnet[2]);
+      #endif
       // Clear the outgoing packet.
       memset(xmitPacket, 0, sizeof(xmitPacket));
       // Copy the sensor readings into the packet's payload.
